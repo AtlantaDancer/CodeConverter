@@ -7,13 +7,10 @@ namespace ICSharpCode.CodeConverter.Tests.VB
     public class SpecialConversionTests : ConverterTestBase
     {
         [Fact]
-        public async Task TestSimpleInlineAssignAsync()
-        {
+        public async Task TestSimpleInlineAssignAsync() {
             await TestConversionCSharpToVisualBasicAsync(
-                @"class TestClass
-{
-    void TestMethod()
-    {
+                @"class TestClass {
+    void TestMethod() {
         int a, b;
         b = a = 5;
     }
@@ -34,6 +31,78 @@ End Class
 
 1 target compilation errors:
 BC30451: 'CSharpImpl.__Assign' is not declared. It may be inaccessible due to its protection level.");
+        }
+        [Fact]
+        public async Task DerivedClass_AssignAsync() {
+            await TestConversionCSharpToVisualBasicAsync(
+@"public abstract class BaseClass {
+    public int Property1 { get; set; }
+    public BaseClass() { }
+}
+public class DerivedClass : BaseClass {
+    public int Property2 { get; set; }
+    public void TestMethod2() {
+        Property2 = Property1 = 10;
+    }
+}",
+@"Public MustInherit Class BaseClass
+    Public Property Property1 As Integer
+
+    Public Sub New()
+    End Sub
+End Class
+
+Public Class DerivedClass
+    Inherits BaseClass
+
+    Public Property Property2 As Integer
+
+    Public Sub TestMethod2()
+        Property2 = CSharpImpl.__Assign(Property1, 10)
+    End Sub
+
+    Private Class CSharpImpl
+        <System.Obsolete(""Please refactor calling code to use normal Visual Basic assignment"")>
+        Shared Function __Assign(Of T)(ByRef target As T, value As T) As T
+            target = value
+            Return value
+        End Function
+    End Class
+End Class
+
+1 target compilation errors:
+BC30451: 'CSharpImpl.__Assign' is not declared. It may be inaccessible due to its protection level.", conversionOptions: EmptyNamespaceOptionStrictOff);
+        }
+        [Fact]
+        public async Task DoNotGenerateAssignInSeveralClasses_ObsoleteShouldAlsoBeFullQualifiedAsync() {
+            await TestConversionCSharpToVisualBasicAsync(
+@"class TestClass {
+    void TestMethod() {
+        int a, b;
+        b = a = 5;
+    }
+}
+class TestClass2 { }",
+@"Friend Class TestClass
+    Private Sub TestMethod()
+        Dim a, b As Integer
+        b = CSharpImpl.__Assign(a, 5)
+    End Sub
+
+    Private Class CSharpImpl
+        <System.Obsolete(""Please refactor calling code to use normal Visual Basic assignment"")>
+        Shared Function __Assign(Of T)(ByRef target As T, value As T) As T
+            target = value
+            Return value
+        End Function
+    End Class
+End Class
+
+Friend Class TestClass2
+End Class
+
+1 target compilation errors:
+BC30451: 'CSharpImpl.__Assign' is not declared. It may be inaccessible due to its protection level.", conversionOptions: EmptyNamespaceOptionStrictOff);
         }
 
         [Fact]
